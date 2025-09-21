@@ -15,10 +15,10 @@ const screens = [
 export function AppLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname()
   const router = useRouter()
-  const { uploadedContent, quizState } = useAppContext()
+  const { uploadState, quizState } = useAppContext()
 
   const handleScreenChange = (path: string) => {
-    if (path === "/quiz" && !uploadedContent && !quizState.questions.length) {
+    if (path === "/quiz" && !uploadState.content && !quizState.questions.length) {
       // Don't allow quiz access without content
       return
     }
@@ -47,12 +47,12 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
                   variant={currentScreen === id ? "default" : "ghost"}
                   size="sm"
                   onClick={() => handleScreenChange(path)}
-                  disabled={id === "quiz" && !uploadedContent && !quizState.questions.length}
+                  disabled={id === "quiz" && !uploadState.content && !quizState.questions.length}
                   className={`flex items-center gap-2 ${
                     currentScreen === id
                       ? "bg-blue-600 text-white hover:bg-blue-700"
                       : "text-gray-700 hover:text-gray-900"
-                  } ${id === "quiz" && !uploadedContent && !quizState.questions.length ? "opacity-50 cursor-not-allowed" : ""}`}
+                  } ${id === "quiz" && !uploadState.content && !quizState.questions.length ? "opacity-50 cursor-not-allowed" : ""}`}
                 >
                   <Icon className="w-4 h-4" />
                   {label}

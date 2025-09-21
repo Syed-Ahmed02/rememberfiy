@@ -110,9 +110,12 @@ export function TutorScreen({ questionContext, uploadedContent }: TutorScreenPro
 
         // Record tutor session in Convex
         if (convexUserId) {
+          // Only pass quizId if it's a valid Convex ID (not a string)
+          const validQuizId = typeof quizState.quizId === 'string' ? undefined : quizState.quizId
+          
           await recordTutorSession({
             userId: convexUserId,
-            quizId: quizState.quizId,
+            quizId: validQuizId,
             questionText: questionToUse,
             userAnswer: currentInput,
             tutorResponse: response.response,
