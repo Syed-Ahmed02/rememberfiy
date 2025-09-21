@@ -1,7 +1,8 @@
 import type React from "react"
 import type { Metadata } from "next"
 import {Geist,Geist_Mono} from "next/font/google"
-
+import { ClerkProvider } from '@clerk/nextjs'
+import ConvexClientProvider from '@/components/ConvexClientProvider'
 import "./globals.css"
 import { Navigation } from "@/components/navigation"
 
@@ -20,6 +21,7 @@ export const metadata: Metadata = {
   description: "Upload content and create personalized quizzes with AI",
 }
 
+
 export default function RootLayout({
   children,
 }: Readonly<{
@@ -29,7 +31,11 @@ export default function RootLayout({
     <html lang="en">
       <body className={`${geistSans.variable} ${geistMono.variable} antialiased min-h-screen bg-gray-50`}>
         <Navigation />
-        <main>{children}</main>
+        <main>
+          <ClerkProvider>
+            <ConvexClientProvider>{children}</ConvexClientProvider>
+          </ClerkProvider>
+        </main>
       </body>
     </html>
   )

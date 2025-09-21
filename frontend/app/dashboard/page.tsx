@@ -2,6 +2,10 @@
 
 import { useRouter } from "next/navigation"
 import { DashboardScreen } from "@/components/dashboard-screen"
+import { SignInButton } from "@clerk/nextjs"
+import { UserButton } from "@clerk/nextjs"
+
+import { Authenticated, Unauthenticated } from "convex/react";
 
 export default function DashboardPage() {
   const router = useRouter()
@@ -20,7 +24,13 @@ export default function DashboardPage() {
 
   return (
     <div className="max-w-4xl mx-auto px-4 py-8">
-      <DashboardScreen onTakeQuiz={handleTakeQuiz} onCreateNewQuiz={handleCreateNewQuiz} />
+      <Authenticated>
+        <UserButton />
+        <DashboardScreen onTakeQuiz={handleTakeQuiz} onCreateNewQuiz={handleCreateNewQuiz} />
+      </Authenticated>
+      <Unauthenticated>
+        <SignInButton />
+      </Unauthenticated>
     </div>
   )
 }

@@ -2,17 +2,21 @@
 fastapi
 uvicorn
 
-# LangChain + LangGraph
-langchain
-langgraph
-openai
+# AI Services
+replicate       # for AI model integration
+openai          # backup AI service
 
 # Data parsing
 pypdf2          # simple PDF to text
 python-multipart  # needed for file uploads in FastAPI
+pillow          # image processing
+
+# Database
+convex          # Convex database client
 
 # Pydantic (data validation, already included in FastAPI but explicit is good)
 pydantic
 
-# Optional but useful
+# Environment and utilities
+python-dotenv   # environment variables
 tiktoken        # for token counting
