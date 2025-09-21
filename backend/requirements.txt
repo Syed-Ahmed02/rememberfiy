@@ -1,0 +1,18 @@
+# Web framework
+fastapi
+uvicorn
+
+# LangChain + LangGraph
+langchain
+langgraph
+openai
+
+# Data parsing
+pypdf2          # simple PDF to text
+python-multipart  # needed for file uploads in FastAPI
+
+# Pydantic (data validation, already included in FastAPI but explicit is good)
+pydantic
+
+# Optional but useful
+tiktoken        # for token counting
