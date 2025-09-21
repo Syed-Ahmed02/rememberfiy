@@ -242,12 +242,27 @@ class S3Service:
                     'original_filename': original_filename
                 }
             )
+            
+            # Verify the upload was successful
+            try:
+                self.s3_client.head_object(Bucket=self.bucket_name, Key=s3_key)
+                logger.info(f"Image upload verified: {s3_key}")
+            except ClientError as e:
+                logger.error(f"Failed to verify image upload: {str(e)}")
+                raise ValueError(f"Image upload verification failed: {str(e)}")
 
-            # Generate public URL
-            if self.s3_url.endswith("/"):
-                public_url = f"{self.s3_url}{s3_key}"
+            # Generate public URL with proper handling for different storage providers
+            if "supabase" in self.s3_url.lower():
+                # For Supabase, generate the public URL using the correct format
+                # Supabase storage URLs need to be constructed differently
+                base_url = self.s3_url.replace('/storage/v1/s3', '/storage/v1/object/public')
+                public_url = f"{base_url}/{self.bucket_name}/{s3_key}"
             else:
-                public_url = f"{self.s3_url}/{s3_key}"
+                # For standard S3 or S3-compatible storage
+                if self.s3_url.endswith("/"):
+                    public_url = f"{self.s3_url}{s3_key}"
+                else:
+                    public_url = f"{self.s3_url}/{s3_key}"
 
             logger.info(f"Image uploaded successfully: {public_url}")
             return public_url

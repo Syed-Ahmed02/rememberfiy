@@ -272,16 +272,23 @@ Your response should be 2-4 sentences long.
                 with open(image_source, "rb") as image_file:
                     image_input = image_file
 
-            # Use GLM-4V-9B model for OCR (async call)
-            output = await replicate.async_run(
-                self.models["image_to_text"],
-                input={
-                    "image": image_input,
-                    "top_k": 1,
-                    "prompt": "Please identify and extract all text in the image. Include any handwritten text, printed text, or text in diagrams. Also describe any visual elements, charts, or diagrams you see.",
-                    "max_length": 1024
-                }
-            )
+            # Use GLM-4V-9B model for OCR (async call) with timeout handling
+            try:
+                output = await replicate.async_run(
+                    self.models["image_to_text"],
+                    input={
+                        "image": image_input,
+                        "top_k": 1,
+                        "prompt": "Please identify and extract all text in the image. Include any handwritten text, printed text, or text in diagrams. Also describe any visual elements, charts, or diagrams you see.",
+                        "max_length": 1024
+                    }
+                )
+            except Exception as e:
+                logger.error(f"GLM-4V-9B model failed to process image: {str(e)}")
+                if "403" in str(e) or "Forbidden" in str(e):
+                    raise ValueError(f"403 Forbidden: The image URL may not be publicly accessible. Please check your S3 bucket permissions and URL format. Error: {str(e)}")
+                else:
+                    raise ValueError(f"OCR processing failed: {str(e)}")
 
             # Extract text from output (GLM-4V-9B may return streaming output)
             text = ""

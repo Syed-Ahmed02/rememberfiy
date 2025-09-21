@@ -180,16 +180,23 @@ async def upload_image(
                 logger.info(f"Image uploaded to S3: {s3_url}")
             except Exception as e:
                 logger.error(f"S3 image upload failed: {str(e)}")
-                raise HTTPException(status_code=500, detail=f"Failed to upload image to S3: {str(e)}")
+                raise HTTPException(status_code=500, detail=f"Failed to upload image to S3: {str(e)}. Please check your S3 configuration (S3_STORAGE_URL, S3_ACCESS_KEY, S3_SECRET_ACCESS_KEY).")
         else:
-            raise HTTPException(status_code=500, detail="S3 service is not available. Cannot process images without S3 storage.")
+            raise HTTPException(status_code=500, detail="S3 service is not available. Please set up S3_STORAGE_URL, S3_ACCESS_KEY, and S3_SECRET_ACCESS_KEY environment variables.")
 
         # Process the image for text extraction using the S3 URL
         logger.info(f"Processing image from S3 URL: {s3_url}")
-        processed_content, file_type_desc = file_service.process_file_with_url(s3_url, "image")
-        logger.info(f"Processed content length: {len(processed_content)} characters")
-        logger.info(f"Processed content preview: {processed_content[:100] if processed_content else 'EMPTY'}")
-        file_type = file_type_desc
+        try:
+            processed_content, file_type_desc = file_service.process_file_with_url(s3_url, "image")
+            logger.info(f"Processed content length: {len(processed_content)} characters")
+            logger.info(f"Processed content preview: {processed_content[:100] if processed_content else 'EMPTY'}")
+            file_type = file_type_desc
+        except Exception as e:
+            logger.error(f"Image processing failed: {str(e)}")
+            if "403" in str(e) or "Forbidden" in str(e):
+                raise HTTPException(status_code=500, detail=f"403 Forbidden: The uploaded image is not publicly accessible. Please check your S3 bucket permissions. URL: {s3_url}")
+            else:
+                raise HTTPException(status_code=500, detail=f"Failed to process image: {str(e)}")
 
         # Generate summary using AI
         logger.info(f"Generating summary from content (length: {len(processed_content)})")
