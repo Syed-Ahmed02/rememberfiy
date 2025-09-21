@@ -3,14 +3,14 @@ Pydantic models for quiz-related data structures
 """
 
 from pydantic import BaseModel
-from typing import List, Dict, Optional, Any
+from typing import List, Dict, Optional, Any, Union
 from datetime import datetime
 
 class Question(BaseModel):
     """Model for a single quiz question"""
     question: str
     options: Optional[List[str]] = None
-    correct_answer: str
+    correct_answer: Union[str, int]
     explanation: str
     question_type: str = "multiple-choice"  # "multiple-choice" or "short-answer"
 
@@ -64,6 +64,7 @@ class UploadResponse(BaseModel):
     summary: str
     file_type: str
     file_name: Optional[str] = None
+    file_url: Optional[str] = None  # S3 URL for accessing the uploaded file
     processed_at: datetime
 
 class QuizAttempt(BaseModel):

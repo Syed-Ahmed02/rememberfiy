@@ -29,10 +29,10 @@ class ReplicateService:
 
         # Model configurations
         self.models = {
-            "quiz_generation": "meta/meta-llama-3-8b-instruct",  # Using Llama 3 for quiz generation
-            "summarization": "meta/meta-llama-3-8b-instruct",    # Using Llama 3 for summarization
-            "socratic_tutor": "meta/meta-llama-3-8b-instruct",   # Using Llama 3 for Socratic tutoring
-            "image_to_text": "andreasjansson/blip-2",           # Using BLIP-2 for image captioning
+            "quiz_generation": "openai/gpt-5-mini",  # Using gpt-5-mini for quiz generation
+            "summarization": "openai/gpt-5-mini",    # Using gpt-5-mini for summarization
+            "socratic_tutor": "openai/gpt-5-mini",   # Using gpt-5-mini for Socratic tutoring
+            "image_to_text": "cuuupid/glm-4v-9b:69196a237cdc310988a4b12ad64f4b36d10189428c19a18526af708546e1856f",  # Using GLM-4V-9B for OCR
         }
 
     async def generate_quiz(self, content: str, difficulty: str = "medium", num_questions: int = 5) -> List[Dict[str, Any]]:
@@ -75,6 +75,8 @@ Return the questions in this exact JSON format:
         }}
     ]
 }}
+
+IMPORTANT: The correct_answer should be an integer index (0, 1, 2, or 3) representing the position of the correct option in the options array.
 
 Return only valid JSON, no additional text.
 """
@@ -248,41 +250,149 @@ Your response should be 2-4 sentences long.
             logger.error(f"Error generating Socratic response: {str(e)}")
             return "That's an interesting approach. Can you tell me what led you to that conclusion? What other aspects of this concept should we consider?"
 
-    async def extract_text_from_image(self, image_path: str) -> str:
+    async def extract_text_from_image(self, image_source: str) -> str:
         """
-        Extract text and describe content from an image using AI
+        Extract text and describe content from an image using GLM-4V-9B for OCR
 
         Args:
-            image_path: Path to the image file
+            image_source: Either a file path (local) or URL (remote) to the image
 
         Returns:
             Extracted text and description
         """
         try:
-            logger.info(f"Extracting text from image: {image_path}")
+            logger.info(f"Extracting text from image using GLM-4V-9B: {image_source}")
 
-            # Open the image file
-            with open(image_path, "rb") as image_file:
-                output = replicate.run(
-                    self.models["image_to_text"],
-                    input={
-                        "image": image_file,
-                        "caption": True,
-                        "context": "This image may contain text, diagrams, or educational content. Please extract all visible text and describe any visual elements."
-                    }
-                )
-
-            # Extract text from output
-            if isinstance(output, list):
-                text = "".join(output)
+            # Check if it's a URL or file path
+            if image_source.startswith(('http://', 'https://')):
+                # It's a URL - pass it directly
+                image_input = image_source
             else:
+                # It's a file path - open the file
+                with open(image_source, "rb") as image_file:
+                    image_input = image_file
+
+            # Use GLM-4V-9B model for OCR (async call)
+            output = await replicate.async_run(
+                self.models["image_to_text"],
+                input={
+                    "image": image_input,
+                    "top_k": 1,
+                    "prompt": "Please identify and extract all text in the image. Include any handwritten text, printed text, or text in diagrams. Also describe any visual elements, charts, or diagrams you see.",
+                    "max_length": 1024
+                }
+            )
+
+            # Extract text from output (GLM-4V-9B may return streaming output)
+            text = ""
+
+            # Debug: log the output type
+            logger.info(f"GLM-4V-9B output type: {type(output)}")
+            logger.info(f"GLM-4V-9B output: {str(output)[:200]}...")
+
+            # Handle different output types from replicate.async_run()
+            if isinstance(output, list):
+                # Handle list output (streaming)
+                logger.info(f"Processing list output with {len(output)} items")
+                for item in output:
+                    if hasattr(item, 'read'):
+                        # Handle FileOutput objects
+                        text += item.read().decode('utf-8')
+                    else:
+                        text += str(item)
+            elif hasattr(output, '__aiter__'):
+                # Handle async generator output (GLM-4V-9B streaming)
+                logger.info("Processing async generator output")
+                try:
+                    item_count = 0
+                    async for item in output:
+                        item_count += 1
+                        logger.info(f"Async generator yielded item {item_count}: type={type(item)}, content={str(item)[:200]}...")
+                        if hasattr(item, 'read'):
+                            # Handle FileOutput objects
+                            try:
+                                decoded_content = item.read().decode('utf-8')
+                                logger.info(f"FileOutput decoded: {decoded_content[:100]}...")
+                                text += decoded_content
+                            except Exception as e:
+                                logger.error(f"Error decoding FileOutput: {e}")
+                                text += str(item)
+                        elif isinstance(item, (str, bytes)):
+                            # Handle string or bytes
+                            if isinstance(item, bytes):
+                                try:
+                                    text += item.decode('utf-8')
+                                except Exception as e:
+                                    logger.error(f"Error decoding bytes: {e}")
+                                    text += str(item)
+                            else:
+                                text += item
+                        else:
+                            # Handle other types
+                            logger.warning(f"Unknown item type: {type(item)}")
+                            text += str(item)
+                    logger.info(f"Async generator yielded {item_count} items total")
+                except TypeError as e:
+                    logger.error(f"Async generator TypeError: {e}")
+                    # Fallback: convert to string
+                    text = str(output)
+            elif hasattr(output, '__iter__') and not isinstance(output, str):
+                # Handle iterator output (including Future objects)
+                logger.info("Processing regular iterator output")
+                try:
+                    item_count = 0
+                    for item in output:
+                        item_count += 1
+                        logger.info(f"Iterator yielded item {item_count}: type={type(item)}, content={str(item)[:200]}...")
+                        if hasattr(item, 'read'):
+                            # Handle FileOutput objects
+                            try:
+                                decoded_content = item.read().decode('utf-8')
+                                logger.info(f"Iterator FileOutput decoded: {decoded_content[:100]}...")
+                                text += decoded_content
+                            except Exception as e:
+                                logger.error(f"Error decoding iterator FileOutput: {e}")
+                                text += str(item)
+                        elif isinstance(item, (str, bytes)):
+                            # Handle string or bytes
+                            if isinstance(item, bytes):
+                                try:
+                                    text += item.decode('utf-8')
+                                except Exception as e:
+                                    logger.error(f"Error decoding iterator bytes: {e}")
+                                    text += str(item)
+                            else:
+                                text += item
+                        else:
+                            # Handle other types
+                            logger.warning(f"Iterator unknown item type: {type(item)}")
+                            text += str(item)
+                    logger.info(f"Iterator yielded {item_count} items total")
+                except TypeError as e:
+                    logger.error(f"Iterator TypeError: {e}")
+                    # If it's a Future object, get its result
+                    if hasattr(output, 'result'):
+                        result = output.result()
+                        text = str(result)
+                    else:
+                        text = str(output)
+            elif hasattr(output, 'read'):
+                # Handle FileOutput objects
+                logger.info("Processing FileOutput object")
+                text = output.read().decode('utf-8')
+            else:
+                # Handle single output
+                logger.info("Processing single output")
                 text = str(output)
+
+            logger.info(f"Extracted text length: {len(text)} characters")
+            logger.info(f"Extracted text preview: {text[:200] if text else 'EMPTY'}")
 
             return text.strip()
 
         except Exception as e:
-            logger.error(f"Error extracting text from image: {str(e)}")
-            return f"Error processing image: {str(e)}"
+            logger.error(f"Error extracting text from image with GLM-4V-9B: {str(e)}")
+            raise ValueError(f"GLM-4V-9B OCR failed: {str(e)}")
 
     def calculate_review_date(self, score: float, total_questions: int) -> datetime:
         """

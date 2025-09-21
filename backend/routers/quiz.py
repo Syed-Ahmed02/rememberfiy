@@ -62,19 +62,24 @@ async def generate_quiz(request: QuizRequest):
         raise HTTPException(status_code=500, detail=f"Failed to generate quiz: {str(e)}")
 
 @router.post("/summary", response_model=dict)
-async def generate_summary(content: str, max_length: int = 500):
+async def generate_summary(request: dict):
     """
     Generate a summary of the provided content
 
     Args:
-        content: Text content to summarize
-        max_length: Maximum length of summary in characters
+        request: Dict with content and optional max_length
 
     Returns:
         Dict with summary text
     """
     try:
         logger.info("Generating summary from content")
+        
+        content = request.get("content", "")
+        max_length = request.get("max_length", 500)
+        
+        if not content:
+            raise HTTPException(status_code=400, detail="Content is required")
 
         summary = await replicate_service.generate_summary(content)
 
@@ -89,19 +94,24 @@ async def generate_summary(content: str, max_length: int = 500):
         raise HTTPException(status_code=500, detail=f"Failed to generate summary: {str(e)}")
 
 @router.post("/socratic", response_model=dict)
-async def socratic_tutor(question: str, user_answer: str, attempts: int = 1):
+async def socratic_tutor(request: dict):
     """
     Generate Socratic tutoring response
 
     Args:
-        question: The original question
-        user_answer: User's answer
-        attempts: Number of attempts made
+        request: Dict with question, user_answer, and attempts
 
     Returns:
         Dict with Socratic response
     """
     try:
+        question = request.get("question", "")
+        user_answer = request.get("user_answer", "")
+        attempts = request.get("attempts", 1)
+        
+        if not question or not user_answer:
+            raise HTTPException(status_code=400, detail="Question and user_answer are required")
+        
         logger.info(f"Generating Socratic response for attempt {attempts}")
 
         response = await replicate_service.socratic_response(

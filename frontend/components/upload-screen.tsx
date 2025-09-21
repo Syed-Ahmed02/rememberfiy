@@ -6,92 +6,139 @@ import { useState } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
-import { Upload, FileText, BookOpen, LayoutDashboard, Sparkles, ImageIcon } from "lucide-react"
+import { Upload, FileText, BookOpen, LayoutDashboard, Sparkles, ImageIcon, AlertCircle } from "lucide-react"
 import { useRouter } from "next/navigation"
+import { useAppContext } from "@/contexts/app-context"
+import { apiClient } from "@/lib/api-client"
 
 export function UploadScreen() {
   const router = useRouter()
+  const { 
+    uploadState, 
+    setUploadState, 
+    isLoading, 
+    setIsLoading, 
+    error, 
+    setError,
+    resetUpload 
+  } = useAppContext()
+  
   const [textContent, setTextContent] = useState("")
-  const [hasContent, setHasContent] = useState(false)
-  const [aiSummary, setAiSummary] = useState("")
-  const [isProcessing, setIsProcessing] = useState(false)
   const [showActions, setShowActions] = useState(false)
 
-  const handleContentUploaded = (content: string) => {
-    localStorage.setItem("uploadedContent", content)
-    localStorage.setItem("uploadTimestamp", Date.now().toString())
-
-    // Trigger storage event for same-tab updates
-    window.dispatchEvent(new Event("focus"))
-  }
-
   const handleTextSubmit = async () => {
-    if (textContent.trim()) {
-      setIsProcessing(true)
-      handleContentUploaded(textContent)
-
-      // Simulate AI processing
-      await new Promise((resolve) => setTimeout(resolve, 2000))
-
-      // Generate AI summary
-      const summary = generateAISummary(textContent)
-      setAiSummary(summary)
-      setHasContent(true)
-      setIsProcessing(false)
-      setShowActions(true)
+    if (!textContent.trim()) return
+    
+    setIsLoading(true)
+    setError(null)
+    
+    try {
+      // Upload text to backend
+      const response = await apiClient.uploadText(textContent)
+      
+      if (response.success) {
+        // Update app state
+        setUploadState({
+          content: response.content || textContent,
+          summary: response.summary,
+          fileType: "text",
+        })
+        
+        // Store in localStorage for backwards compatibility
+        localStorage.setItem("uploadedContent", response.content || textContent)
+        localStorage.setItem("uploadTimestamp", Date.now().toString())
+        window.dispatchEvent(new Event("focus"))
+        
+        setShowActions(true)
+      } else {
+        setError(response.message || "Failed to process text")
+      }
+    } catch (err) {
+      console.error("Text upload error:", err)
+      setError(err instanceof Error ? err.message : "Failed to process text")
+    } finally {
+      setIsLoading(false)
     }
   }
 
   const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0]
-    if (file && file.type === "application/pdf") {
-      setIsProcessing(true)
-      // Simulate PDF processing
-      const simulatedContent = `PDF Content: ${file.name}\n\nThis is simulated content from the uploaded PDF file. In a real implementation, you would use a PDF parsing library to extract the actual text content.`
-      handleContentUploaded(simulatedContent)
-
-      // Simulate AI processing
-      await new Promise((resolve) => setTimeout(resolve, 2000))
-
-      // Generate AI summary
-      const summary = generateAISummary(simulatedContent)
-      setAiSummary(summary)
-      setHasContent(true)
-      setIsProcessing(false)
-      setShowActions(true)
+    if (!file || file.type !== "application/pdf") return
+    
+    setIsLoading(true)
+    setError(null)
+    
+    try {
+      // Upload PDF to backend
+      const response = await apiClient.uploadFile(file)
+      
+      if (response.success) {
+        // Update app state
+        setUploadState({
+          content: response.content || "",
+          summary: response.summary,
+          fileType: "pdf",
+          fileName: file.name,
+          filePath: response.file_path,
+        })
+        
+        // Store in localStorage for backwards compatibility
+        localStorage.setItem("uploadedContent", response.content || "")
+        localStorage.setItem("uploadTimestamp", Date.now().toString())
+        window.dispatchEvent(new Event("focus"))
+        
+        setShowActions(true)
+      } else {
+        setError(response.message || "Failed to process PDF")
+      }
+    } catch (err) {
+      console.error("PDF upload error:", err)
+      setError(err instanceof Error ? err.message : "Failed to process PDF")
+    } finally {
+      setIsLoading(false)
     }
   }
 
   const handleImageUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0]
-    if (file && file.type.startsWith("image/")) {
-      setIsProcessing(true)
-      // Simulate image OCR processing
-      const simulatedContent = `Image Content: ${file.name}\n\nThis is simulated text extracted from the uploaded image using OCR technology. In a real implementation, you would use an OCR service like Google Vision API or Tesseract to extract actual text from images, diagrams, and handwritten notes.`
-      handleContentUploaded(simulatedContent)
-
-      // Simulate AI processing
-      await new Promise((resolve) => setTimeout(resolve, 2500))
-
-      // Generate AI summary
-      const summary = generateAISummary(simulatedContent)
-      setAiSummary(summary)
-      setHasContent(true)
-      setIsProcessing(false)
-      setShowActions(true)
+    if (!file || !file.type.startsWith("image/")) return
+    
+    setIsLoading(true)
+    setError(null)
+    
+    try {
+      // Upload image to backend
+      const response = await apiClient.uploadImage(file)
+      
+      if (response.success) {
+        // Update app state
+        setUploadState({
+          content: response.content || "",
+          summary: response.summary,
+          fileType: "image",
+          fileName: file.name,
+          filePath: response.file_path,
+        })
+        
+        // Store in localStorage for backwards compatibility
+        localStorage.setItem("uploadedContent", response.content || "")
+        localStorage.setItem("uploadTimestamp", Date.now().toString())
+        window.dispatchEvent(new Event("focus"))
+        
+        setShowActions(true)
+      } else {
+        setError(response.message || "Failed to process image")
+      }
+    } catch (err) {
+      console.error("Image upload error:", err)
+      setError(err instanceof Error ? err.message : "Failed to process image")
+    } finally {
+      setIsLoading(false)
     }
   }
 
-  const generateAISummary = (content: string): string => {
-    // Simulate AI summary generation
-    const summaries = [
-      "This content covers fundamental concepts in machine learning, including supervised and unsupervised learning algorithms, neural networks, and practical applications in data science.",
-      "The material discusses key principles of software engineering, focusing on design patterns, code architecture, testing methodologies, and best practices for scalable applications.",
-      "This text explores advanced topics in data structures and algorithms, covering time complexity analysis, graph algorithms, dynamic programming, and optimization techniques.",
-      "The content provides an overview of modern web development, including frontend frameworks, backend architecture, database design, and deployment strategies.",
-    ]
-    return summaries[Math.floor(Math.random() * summaries.length)]
-  }
+  const hasContent = uploadState.content.length > 0
+  const aiSummary = uploadState.summary
 
   const onViewDashboard = () => {
     router.push("/dashboard")
@@ -109,7 +156,25 @@ export function UploadScreen() {
           <p className="text-gray-600">Choose how you'd like to add your content</p>
         </CardHeader>
         <CardContent className="space-y-6">
-          {!hasContent && !isProcessing && (
+          {error && (
+            <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+              <div className="flex items-center gap-2">
+                <AlertCircle className="w-5 h-5 text-red-600" />
+                <h3 className="text-sm font-semibold text-red-900">Error</h3>
+              </div>
+              <p className="text-red-800 mt-1">{error}</p>
+              <Button 
+                variant="outline" 
+                size="sm" 
+                onClick={resetUpload}
+                className="mt-2"
+              >
+                Try Again
+              </Button>
+            </div>
+          )}
+          
+          {!hasContent && !isLoading && !error && (
             <>
               {/* PDF Upload Section */}
               <div className="space-y-4">
@@ -169,7 +234,7 @@ export function UploadScreen() {
             </>
           )}
 
-          {isProcessing && (
+          {isLoading && (
             <div className="text-center py-8">
               <Sparkles className="w-12 h-12 text-blue-500 mx-auto mb-4 animate-spin" />
               <h3 className="text-lg font-semibold text-gray-800 mb-2">Processing your content...</h3>

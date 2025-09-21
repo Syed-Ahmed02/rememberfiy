@@ -21,6 +21,15 @@ from routers import quiz, upload
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
+# Test S3 connection on startup
+try:
+    from services.s3_service import S3Service
+    s3_service = S3Service()
+    logger.info("✅ S3 service initialized successfully")
+except Exception as e:
+    logger.warning(f"⚠️ S3 service not available: {str(e)}")
+    logger.warning("File uploads will still work but files won't be stored in S3")
+
 app = FastAPI(
     title="Remberify API",
     description="AI-powered learning platform with quiz generation and Socratic tutoring",
@@ -51,6 +60,7 @@ def read_root():
             "/api/socratic",
             "/api/summary",
             "/api/upload",
+            "/api/upload_image",
             "/api/upload_text",
             "/health"
         ]

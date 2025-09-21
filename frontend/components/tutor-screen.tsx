@@ -6,7 +6,10 @@ import { useState, useRef, useEffect } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { Send, Bot, User } from "lucide-react"
+import { Send, Bot, User, Loader } from "lucide-react"
+import { useAppContext } from "@/contexts/app-context"
+import { apiClient } from "@/lib/api-client"
+import { useRecordTutorSession } from "@/lib/convex-client"
 
 interface Message {
   id: number
@@ -21,6 +24,19 @@ interface TutorScreenProps {
 }
 
 export function TutorScreen({ questionContext, uploadedContent }: TutorScreenProps) {
+  const { 
+    convexUserId, 
+    quizState, 
+    currentQuestionContext, 
+    setCurrentQuestionContext,
+    isLoading,
+    setIsLoading,
+    error,
+    setError 
+  } = useAppContext()
+  
+  const recordTutorSession = useRecordTutorSession()
+  
   const [messages, setMessages] = useState<Message[]>([
     {
       id: 1,
@@ -31,6 +47,8 @@ export function TutorScreen({ questionContext, uploadedContent }: TutorScreenPro
     },
   ])
   const [inputMessage, setInputMessage] = useState("")
+  const [isGeneratingResponse, setIsGeneratingResponse] = useState(false)
+  const [attemptCount, setAttemptCount] = useState(1)
   const messagesEndRef = useRef<HTMLDivElement>(null)
 
   const scrollToBottom = () => {
@@ -53,8 +71,8 @@ export function TutorScreen({ questionContext, uploadedContent }: TutorScreenPro
     }
   }, [questionContext])
 
-  const handleSendMessage = () => {
-    if (!inputMessage.trim()) return
+  const handleSendMessage = async () => {
+    if (!inputMessage.trim() || isGeneratingResponse) return
 
     const userMessage: Message = {
       id: messages.length + 1,
@@ -64,22 +82,73 @@ export function TutorScreen({ questionContext, uploadedContent }: TutorScreenPro
     }
 
     setMessages((prev) => [...prev, userMessage])
+    const currentInput = inputMessage
     setInputMessage("")
+    setIsGeneratingResponse(true)
+    setError(null)
 
-    // Simulate AI tutor response
-    setTimeout(() => {
-      const tutorResponse = generateTutorResponse(inputMessage, uploadedContent)
+    try {
+      // Use the question context from props or app context
+      const questionToUse = questionContext || currentQuestionContext || "General learning question"
+      
+      // Get AI tutor response
+      const response = await apiClient.getSocraticResponse(
+        questionToUse,
+        currentInput,
+        attemptCount
+      )
+
+      if (response.success && response.response) {
+        const tutorMessage: Message = {
+          id: messages.length + 2,
+          content: response.response,
+          sender: "tutor",
+          timestamp: new Date(),
+        }
+
+        setMessages((prev) => [...prev, tutorMessage])
+
+        // Record tutor session in Convex
+        if (convexUserId) {
+          await recordTutorSession({
+            userId: convexUserId,
+            quizId: quizState.quizId,
+            questionText: questionToUse,
+            userAnswer: currentInput,
+            tutorResponse: response.response,
+            isCorrect: response.isCorrect,
+          })
+        }
+
+        setAttemptCount(prev => prev + 1)
+      } else {
+        // Fallback to simulated response
+        const fallbackResponse = generateFallbackResponse(currentInput)
+        const tutorMessage: Message = {
+          id: messages.length + 2,
+          content: fallbackResponse,
+          sender: "tutor",
+          timestamp: new Date(),
+        }
+        setMessages((prev) => [...prev, tutorMessage])
+      }
+    } catch (err) {
+      console.error("Tutor response error:", err)
+      // Show fallback response on error
+      const fallbackResponse = generateFallbackResponse(currentInput)
       const tutorMessage: Message = {
         id: messages.length + 2,
-        content: tutorResponse,
+        content: fallbackResponse,
         sender: "tutor",
         timestamp: new Date(),
       }
       setMessages((prev) => [...prev, tutorMessage])
-    }, 1000)
+    } finally {
+      setIsGeneratingResponse(false)
+    }
   }
 
-  const generateTutorResponse = (userInput: string, content?: string): string => {
+  const generateFallbackResponse = (userInput: string): string => {
     const responses = [
       "That's an interesting point! Can you tell me what led you to that conclusion?",
       "I see you're thinking about this. What do you think would happen if we approached it differently?",
@@ -153,6 +222,20 @@ export function TutorScreen({ questionContext, uploadedContent }: TutorScreenPro
                   </div>
                 </div>
               ))}
+              
+              {/* Typing indicator */}
+              {isGeneratingResponse && (
+                <div className="flex justify-start">
+                  <div className="max-w-[80%] rounded-lg px-4 py-3 bg-gray-100 text-gray-900">
+                    <div className="flex items-center gap-2">
+                      <Bot className="w-4 h-4 text-gray-600 flex-shrink-0" />
+                      <Loader className="w-4 h-4 animate-spin text-gray-600" />
+                      <span className="text-sm text-gray-600">Tutor is thinking...</span>
+                    </div>
+                  </div>
+                </div>
+              )}
+              
               <div ref={messagesEndRef} />
             </div>
 
@@ -163,14 +246,19 @@ export function TutorScreen({ questionContext, uploadedContent }: TutorScreenPro
                 value={inputMessage}
                 onChange={(e) => setInputMessage(e.target.value)}
                 onKeyPress={handleKeyPress}
+                disabled={isGeneratingResponse}
                 className="flex-1"
               />
               <Button
                 onClick={handleSendMessage}
-                disabled={!inputMessage.trim()}
+                disabled={!inputMessage.trim() || isGeneratingResponse}
                 className="bg-blue-600 hover:bg-blue-700"
               >
-                <Send className="w-4 h-4" />
+                {isGeneratingResponse ? (
+                  <Loader className="w-4 h-4 animate-spin" />
+                ) : (
+                  <Send className="w-4 h-4" />
+                )}
               </Button>
             </div>
           </CardContent>

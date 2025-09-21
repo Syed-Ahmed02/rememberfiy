@@ -44,9 +44,21 @@ export function QuizScreen({ content, quizState, onQuizStateChange, onGoToTutor,
 
   const handleAnswerSubmit = () => {
     const userAnswer = currentQuestion.type === "multiple-choice" ? selectedAnswer : shortAnswer.toLowerCase()
+    
+    // Debug logging
+    if (currentQuestion.type === "multiple-choice") {
+      console.log('Quiz Debug:', {
+        selectedAnswer,
+        correctAnswer: currentQuestion.correctAnswer,
+        correctAnswerType: typeof currentQuestion.correctAnswer,
+        correctAnswerAsNumber: Number(currentQuestion.correctAnswer),
+        options: currentQuestion.options
+      })
+    }
+    
     const isCorrect =
       currentQuestion.type === "multiple-choice"
-        ? userAnswer === currentQuestion.correctAnswer
+        ? selectedAnswer === Number(currentQuestion.correctAnswer)
         : typeof currentQuestion.correctAnswer === "string" &&
           shortAnswer.toLowerCase().includes(currentQuestion.correctAnswer.toLowerCase())
 
@@ -249,9 +261,9 @@ export function QuizScreen({ content, quizState, onQuizStateChange, onGoToTutor,
                     variant="outline"
                     className={`w-full text-left justify-start p-4 h-auto whitespace-normal ${
                       showResult
-                        ? index === currentQuestion.correctAnswer
+                        ? index === Number(currentQuestion.correctAnswer)
                           ? "bg-green-100 border-green-500 text-green-800"
-                          : selectedAnswer === index && index !== currentQuestion.correctAnswer
+                          : selectedAnswer === index && index !== Number(currentQuestion.correctAnswer)
                             ? "bg-red-100 border-red-500 text-red-800"
                             : ""
                         : selectedAnswer === index

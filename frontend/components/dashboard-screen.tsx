@@ -3,7 +3,10 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { BookOpen, Clock, Calendar, TrendingUp, Star } from "lucide-react"
+import { BookOpen, Clock, Calendar, TrendingUp, Star, Loader } from "lucide-react"
+import { useAppContext } from "@/contexts/app-context"
+import { useGetUserQuizzes, useGetQuizzesDueForReview, useGetUserStats, useGetBestAttempt } from "@/lib/convex-client"
+import { ConvexQuiz } from "@/lib/convex-client"
 
 interface Quiz {
   id: string
@@ -23,41 +26,38 @@ interface DashboardScreenProps {
 }
 
 export function DashboardScreen({ onTakeQuiz, onCreateNewQuiz }: DashboardScreenProps) {
-  const quizzes: Quiz[] = [
-    {
-      id: "1",
-      title: "Machine Learning Fundamentals",
-      subject: "Computer Science",
-      score: 85,
-      totalQuestions: 10,
-      lastReviewDate: new Date("2024-01-15"),
-      nextReviewDate: new Date("2024-01-22"),
-      reviewCount: 3,
-      difficulty: "Medium",
-    },
-    {
-      id: "2",
-      title: "React Hooks Deep Dive",
-      subject: "Web Development",
-      score: 92,
-      totalQuestions: 8,
-      lastReviewDate: new Date("2024-01-10"),
-      nextReviewDate: new Date("2024-01-20"),
-      reviewCount: 2,
-      difficulty: "Hard",
-    },
-    {
-      id: "3",
-      title: "Data Structures Basics",
-      subject: "Computer Science",
-      score: 78,
-      totalQuestions: 12,
-      lastReviewDate: new Date("2024-01-08"),
-      nextReviewDate: new Date("2024-01-18"),
-      reviewCount: 1,
-      difficulty: "Easy",
-    },
-  ]
+  const { convexUserId } = useAppContext()
+  
+  // Fetch data from Convex
+  const userQuizzes = useGetUserQuizzes(convexUserId)
+  const dueQuizzes = useGetQuizzesDueForReview(convexUserId)
+  const userStats = useGetUserStats(convexUserId)
+
+  const getSubjectFromFileType = (fileType: string): string => {
+    switch (fileType) {
+      case 'pdf':
+        return 'PDF Document'
+      case 'image':
+        return 'Image Content'
+      case 'text':
+        return 'Text Content'
+      default:
+        return 'Study Material'
+    }
+  }
+
+  // Transform Convex quizzes to component format
+  const quizzes: Quiz[] = (userQuizzes || []).map((quiz: ConvexQuiz) => ({
+    id: quiz._id,
+    title: quiz.title,
+    subject: getSubjectFromFileType(quiz.fileType),
+    score: 0, // Will be calculated from best attempt
+    totalQuestions: 0, // Will be calculated from questions
+    lastReviewDate: new Date(quiz.lastReviewedAt || quiz.createdAt),
+    nextReviewDate: new Date(quiz.nextReviewAt),
+    reviewCount: quiz.reviewCount,
+    difficulty: quiz.difficulty as "Easy" | "Medium" | "Hard",
+  }))
 
   const getReviewStatus = (nextReviewDate: Date) => {
     const today = new Date()
@@ -100,6 +100,18 @@ export function DashboardScreen({ onTakeQuiz, onCreateNewQuiz }: DashboardScreen
     return "text-red-600"
   }
 
+  // Show loading state
+  if (!convexUserId) {
+    return (
+      <div className="space-y-6">
+        <div className="flex items-center justify-center h-64">
+          <Loader className="w-8 h-8 animate-spin text-blue-600" />
+          <span className="ml-2 text-gray-600">Loading your dashboard...</span>
+        </div>
+      </div>
+    )
+  }
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -124,7 +136,7 @@ export function DashboardScreen({ onTakeQuiz, onCreateNewQuiz }: DashboardScreen
               </div>
               <div>
                 <p className="text-sm text-gray-600">Total Quizzes</p>
-                <p className="text-2xl font-bold text-gray-900">{quizzes.length}</p>
+                <p className="text-2xl font-bold text-gray-900">{userStats?.totalQuizzes || 0}</p>
               </div>
             </div>
           </CardContent>
@@ -139,7 +151,7 @@ export function DashboardScreen({ onTakeQuiz, onCreateNewQuiz }: DashboardScreen
               <div>
                 <p className="text-sm text-gray-600">Avg Score</p>
                 <p className="text-2xl font-bold text-gray-900">
-                  {Math.round(quizzes.reduce((acc, quiz) => acc + quiz.score, 0) / quizzes.length)}%
+                  {userStats?.averageScore || 0}%
                 </p>
               </div>
             </div>
@@ -153,9 +165,9 @@ export function DashboardScreen({ onTakeQuiz, onCreateNewQuiz }: DashboardScreen
                 <Clock className="w-5 h-5 text-orange-600" />
               </div>
               <div>
-                <p className="text-sm text-gray-600">Due Today</p>
+                <p className="text-sm text-gray-600">Due for Review</p>
                 <p className="text-2xl font-bold text-gray-900">
-                  {quizzes.filter((quiz) => getReviewStatus(quiz.nextReviewDate).status === "due").length}
+                  {dueQuizzes?.length || 0}
                 </p>
               </div>
             </div>
@@ -169,8 +181,8 @@ export function DashboardScreen({ onTakeQuiz, onCreateNewQuiz }: DashboardScreen
                 <Star className="w-5 h-5 text-purple-600" />
               </div>
               <div>
-                <p className="text-sm text-gray-600">Streak</p>
-                <p className="text-2xl font-bold text-gray-900">7 days</p>
+                <p className="text-sm text-gray-600">Time Studied</p>
+                <p className="text-2xl font-bold text-gray-900">{userStats?.totalTimeStudied || 0}m</p>
               </div>
             </div>
           </CardContent>
@@ -186,64 +198,70 @@ export function DashboardScreen({ onTakeQuiz, onCreateNewQuiz }: DashboardScreen
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="space-y-4">
-            {quizzes.map((quiz) => {
-              const reviewStatus = getReviewStatus(quiz.nextReviewDate)
-              return (
-                <div key={quiz.id} className="border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow">
-                  <div className="flex items-center justify-between">
-                    <div className="flex-1">
-                      <div className="flex items-center gap-3 mb-2">
-                        <h3 className="text-lg font-semibold text-gray-900">{quiz.title}</h3>
-                        <Badge variant="secondary" className={getDifficultyColor(quiz.difficulty)}>
-                          {quiz.difficulty}
-                        </Badge>
-                        <Badge variant="secondary" className={reviewStatus.color}>
-                          {reviewStatus.text}
-                        </Badge>
+          {quizzes.length === 0 ? (
+            <div className="text-center py-8">
+              <BookOpen className="w-12 h-12 text-gray-400 mx-auto mb-4" />
+              <h3 className="text-lg font-semibold text-gray-900 mb-2">No Quizzes Yet</h3>
+              <p className="text-gray-600 mb-4">Create your first quiz to start learning!</p>
+              <Button onClick={onCreateNewQuiz} className="bg-blue-600 hover:bg-blue-700">
+                <BookOpen className="w-4 h-4 mr-2" />
+                Create Your First Quiz
+              </Button>
+            </div>
+          ) : (
+            <div className="space-y-4">
+              {quizzes.map((quiz) => {
+                const reviewStatus = getReviewStatus(quiz.nextReviewDate)
+                return (
+                  <div key={quiz.id} className="border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow">
+                    <div className="flex items-center justify-between">
+                      <div className="flex-1">
+                        <div className="flex items-center gap-3 mb-2">
+                          <h3 className="text-lg font-semibold text-gray-900">{quiz.title}</h3>
+                          <Badge variant="secondary" className={getDifficultyColor(quiz.difficulty)}>
+                            {quiz.difficulty}
+                          </Badge>
+                          <Badge variant="secondary" className={reviewStatus.color}>
+                            {reviewStatus.text}
+                          </Badge>
+                        </div>
+
+                        <p className="text-gray-600 mb-3">{quiz.subject}</p>
+
+                        <div className="flex items-center gap-6 text-sm text-gray-500">
+                          <div className="flex items-center gap-1">
+                            <Clock className="w-4 h-4" />
+                            <span>Last: {formatDate(quiz.lastReviewDate)}</span>
+                          </div>
+                          <div className="flex items-center gap-1">
+                            <Calendar className="w-4 h-4" />
+                            <span>Next: {formatDate(quiz.nextReviewDate)}</span>
+                          </div>
+                          <div>
+                            <span>Reviews: {quiz.reviewCount}</span>
+                          </div>
+                        </div>
                       </div>
 
-                      <p className="text-gray-600 mb-3">{quiz.subject}</p>
-
-                      <div className="flex items-center gap-6 text-sm text-gray-500">
-                        <div className="flex items-center gap-1">
-                          <Star className="w-4 h-4" />
-                          <span className={`font-medium ${getScoreColor(quiz.score)}`}>
-                            {quiz.score}% ({Math.round((quiz.score * quiz.totalQuestions) / 100)}/{quiz.totalQuestions})
-                          </span>
-                        </div>
-                        <div className="flex items-center gap-1">
-                          <Clock className="w-4 h-4" />
-                          <span>Last: {formatDate(quiz.lastReviewDate)}</span>
-                        </div>
-                        <div className="flex items-center gap-1">
-                          <Calendar className="w-4 h-4" />
-                          <span>Next: {formatDate(quiz.nextReviewDate)}</span>
-                        </div>
-                        <div>
-                          <span>Reviews: {quiz.reviewCount}</span>
-                        </div>
-                      </div>
+                      <Button
+                        onClick={() => onTakeQuiz(quiz.id)}
+                        variant={
+                          reviewStatus.status === "overdue" || reviewStatus.status === "due" ? "default" : "outline"
+                        }
+                        className={
+                          reviewStatus.status === "overdue" || reviewStatus.status === "due"
+                            ? "bg-blue-600 hover:bg-blue-700"
+                            : ""
+                        }
+                      >
+                        {reviewStatus.status === "overdue" || reviewStatus.status === "due" ? "Review Now" : "Practice"}
+                      </Button>
                     </div>
-
-                    <Button
-                      onClick={() => onTakeQuiz(quiz.id)}
-                      variant={
-                        reviewStatus.status === "overdue" || reviewStatus.status === "due" ? "default" : "outline"
-                      }
-                      className={
-                        reviewStatus.status === "overdue" || reviewStatus.status === "due"
-                          ? "bg-blue-600 hover:bg-blue-700"
-                          : ""
-                      }
-                    >
-                      {reviewStatus.status === "overdue" || reviewStatus.status === "due" ? "Review Now" : "Practice"}
-                    </Button>
                   </div>
-                </div>
-              )
-            })}
-          </div>
+                )
+              })}
+            </div>
+          )}
         </CardContent>
       </Card>
     </div>
