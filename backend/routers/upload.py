@@ -246,3 +246,56 @@ async def upload_text(request: UploadRequest):
     except Exception as e:
         logger.error(f"Error processing text upload: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Failed to process text: {str(e)}")
+
+@router.post("/text_to_speech")
+async def generate_text_to_speech(
+    request: dict
+):
+    """
+    Convert text to speech using AI
+    
+    Args:
+        request: Dict containing:
+            - text: Text to convert to speech
+            - voice_id: Optional voice ID (default: "Friendly_Person")
+            - emotion: Optional emotion (default: "happy")
+            - speed: Optional speed (default: 1.0)
+            - language: Optional language (default: "English")
+    
+    Returns:
+        Dict with audio_url of the generated speech
+    """
+    try:
+        logger.info("Processing text-to-speech request")
+        
+        text = request.get("text", "")
+        if not text:
+            raise HTTPException(status_code=400, detail="Text is required")
+        
+        voice_id = request.get("voice_id", "Friendly_Person")
+        emotion = request.get("emotion", "happy")
+        speed = request.get("speed", 1.0)
+        language = request.get("language", "English")
+        
+        # Generate audio using the replicate service
+        audio_url = await replicate_service.generate_text_to_speech(
+            text=text,
+            voice_id=voice_id,
+            emotion=emotion,
+            speed=speed,
+            language=language
+        )
+        
+        return {
+            "success": True,
+            "audio_url": audio_url,
+            "text_length": len(text),
+            "voice_id": voice_id,
+            "emotion": emotion,
+            "speed": speed,
+            "language": language
+        }
+        
+    except Exception as e:
+        logger.error(f"Error generating text-to-speech: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Failed to generate text-to-speech: {str(e)}")

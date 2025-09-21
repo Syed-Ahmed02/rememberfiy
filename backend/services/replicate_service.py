@@ -33,6 +33,7 @@ class ReplicateService:
             "summarization": "openai/gpt-5-mini",    # Using gpt-5-mini for summarization
             "socratic_tutor": "openai/gpt-5-mini",   # Using gpt-5-mini for Socratic tutoring
             "image_to_text": "cuuupid/glm-4v-9b:69196a237cdc310988a4b12ad64f4b36d10189428c19a18526af708546e1856f",  # Using GLM-4V-9B for OCR
+            "text_to_speech": "minimax/speech-02-hd",  # Using minimax/speech-02-hd for TTS
         }
 
     async def generate_quiz(self, content: str, difficulty: str = "medium", num_questions: int = 5) -> List[Dict[str, Any]]:
@@ -429,3 +430,61 @@ Your response should be 2-4 sentences long.
         next_review = next_review.replace(day=next_review.day + days_to_add)
 
         return next_review
+
+    async def generate_text_to_speech(self, text: str, voice_id: str = "Friendly_Person", emotion: str = "happy", speed: float = 1.0, language: str = "English") -> str:
+        """
+        Convert text to speech using Minimax Speech-02-HD model
+        
+        Args:
+            text: The text to convert to speech
+            voice_id: Voice ID to use for speech synthesis (default: "Friendly_Person")
+            emotion: Emotion for speech synthesis (default: "happy")
+            speed: Speech speed (default: 1.0)
+            language: Language for normalization (default: "English")
+            
+        Returns:
+            URL of the generated audio file
+        """
+        try:
+            logger.info(f"Generating text-to-speech for text of length: {len(text)}")
+            
+            # Truncate text if it's too long (model has token limits)
+            max_chars = 2000  # Conservative limit
+            if len(text) > max_chars:
+                text = text[:max_chars] + "..."
+                logger.info(f"Text truncated to {max_chars} characters")
+            
+            output = replicate.run(
+                self.models["text_to_speech"],
+                input={
+                    "text": text,
+                    "pitch": 0,
+                    "speed": speed,
+                    "volume": 1,
+                    "bitrate": 128000,
+                    "channel": "mono",
+                    "emotion": emotion,
+                    "voice_id": voice_id,
+                    "sample_rate": 32000,
+                    "language_boost": language,
+                    "english_normalization": True
+                }
+            )
+            
+            # Get the URL from the output
+            # The output might be a FileOutput object with .url() method, or already a string URL
+            if hasattr(output, 'url') and callable(getattr(output, 'url')):
+                audio_url = output.url()
+            elif hasattr(output, 'url') and not callable(getattr(output, 'url')):
+                audio_url = output.url  # If url is a property, not a method
+            else:
+                audio_url = str(output)  # If output is already a URL string
+            
+            logger.info(f"Generated audio URL: {audio_url}")
+            logger.info(f"Output type: {type(output)}")
+            
+            return audio_url
+            
+        except Exception as e:
+            logger.error(f"Error generating text-to-speech: {str(e)}")
+            raise ValueError(f"Text-to-speech generation failed: {str(e)}")

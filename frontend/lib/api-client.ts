@@ -126,7 +126,7 @@ class ApiClient {
     content?: string;
     summary?: string;
   }> {
-    const result = await this.request('/api/upload_text', {
+    const result = await this.request<any>('/api/upload_text', {
       method: 'POST',
       body: JSON.stringify({ text }),
     });
@@ -155,7 +155,7 @@ class ApiClient {
     message?: string;
   }> {
     try {
-      const response = await this.request('/api/generate_quiz', {
+      const response = await this.request<any>('/api/generate_quiz', {
         method: 'POST',
         body: JSON.stringify({ 
           content, 
@@ -194,7 +194,7 @@ class ApiClient {
     message?: string;
   }> {
     try {
-      const response = await this.request('/api/summary', {
+      const response = await this.request<any>('/api/summary', {
         method: 'POST',
         body: JSON.stringify({ content }),
       });
@@ -225,7 +225,7 @@ class ApiClient {
     message?: string;
   }> {
     try {
-      const response = await this.request('/api/socratic', {
+      const response = await this.request<any>('/api/socratic', {
         method: 'POST',
         body: JSON.stringify({ question, user_answer: userAnswer, attempts }),
       });
@@ -241,6 +241,45 @@ class ApiClient {
       return {
         success: false,
         message: error instanceof Error ? error.message : 'Failed to get tutor response'
+      };
+    }
+  }
+
+  // Text-to-Speech
+  async generateTextToSpeech(
+    text: string,
+    options?: {
+      voice_id?: string;
+      emotion?: string;
+      speed?: number;
+      language?: string;
+    }
+  ): Promise<{
+    success: boolean;
+    audio_url?: string;
+    message?: string;
+  }> {
+    try {
+      const response = await this.request<any>('/api/text_to_speech', {
+        method: 'POST',
+        body: JSON.stringify({
+          text,
+          voice_id: options?.voice_id || 'Friendly_Person',
+          emotion: options?.emotion || 'happy',
+          speed: options?.speed || 1.0,
+          language: options?.language || 'English'
+        }),
+      });
+
+      return {
+        success: response.success,
+        audio_url: response.audio_url
+      };
+    } catch (error) {
+      console.error('Text-to-speech error:', error);
+      return {
+        success: false,
+        message: error instanceof Error ? error.message : 'Failed to generate speech'
       };
     }
   }
@@ -288,5 +327,11 @@ export interface SocraticResponse {
   response?: string;
   isCorrect?: boolean;
   encouragement?: string;
+  message?: string;
+}
+
+export interface TextToSpeechResponse {
+  success: boolean;
+  audio_url?: string;
   message?: string;
 }

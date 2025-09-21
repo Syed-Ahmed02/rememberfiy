@@ -6,7 +6,7 @@ import { useState } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
-import { Upload, FileText, BookOpen, LayoutDashboard, Sparkles, ImageIcon, AlertCircle } from "lucide-react"
+import { Upload, FileText, BookOpen, LayoutDashboard, Sparkles, ImageIcon, AlertCircle, Volume2, VolumeX } from "lucide-react"
 import { useRouter } from "next/navigation"
 import { useAppContext } from "@/contexts/app-context"
 import { apiClient } from "@/lib/api-client"
@@ -25,6 +25,9 @@ export function UploadScreen() {
   
   const [textContent, setTextContent] = useState("")
   const [showActions, setShowActions] = useState(false)
+  const [isGeneratingAudio, setIsGeneratingAudio] = useState(false)
+  const [audioUrl, setAudioUrl] = useState<string | null>(null)
+  const [isPlaying, setIsPlaying] = useState(false)
 
   const handleTextSubmit = async () => {
     if (!textContent.trim()) return
@@ -148,6 +151,64 @@ export function UploadScreen() {
     router.push("/quiz")
   }
 
+  const handleTextToSpeech = async () => {
+    if (!aiSummary) return
+    
+    setIsGeneratingAudio(true)
+    setError(null)
+    
+    try {
+      const response = await apiClient.generateTextToSpeech(aiSummary)
+      
+      if (response.success && response.audio_url) {
+        setAudioUrl(response.audio_url)
+        // Auto-play the generated audio
+        playAudio(response.audio_url)
+      } else {
+        setError(response.message || "Failed to generate audio")
+      }
+    } catch (err) {
+      console.error("Text-to-speech error:", err)
+      setError(err instanceof Error ? err.message : "Failed to generate audio")
+    } finally {
+      setIsGeneratingAudio(false)
+    }
+  }
+
+  const playAudio = (url: string) => {
+    const audio = new Audio(url)
+    audio.onplay = () => setIsPlaying(true)
+    audio.onended = () => setIsPlaying(false)
+    audio.onerror = () => {
+      setIsPlaying(false)
+      setError("Failed to play audio")
+    }
+    audio.play().catch(err => {
+      console.error("Audio play error:", err)
+      setError("Failed to play audio")
+      setIsPlaying(false)
+    })
+  }
+
+  const toggleAudio = () => {
+    if (audioUrl) {
+      if (isPlaying) {
+        // Find and pause the audio
+        const audioElements = document.getElementsByTagName('audio')
+        Array.from(audioElements).forEach(audio => {
+          if (!audio.paused) {
+            audio.pause()
+            setIsPlaying(false)
+          }
+        })
+      } else {
+        playAudio(audioUrl)
+      }
+    } else {
+      handleTextToSpeech()
+    }
+  }
+
   return (
     <div className="flex justify-center">
       <Card className="w-full max-w-2xl">
@@ -245,9 +306,35 @@ export function UploadScreen() {
           {showActions && aiSummary && (
             <div className="space-y-6">
               <div className="bg-blue-50 border border-blue-200 rounded-lg p-6">
-                <div className="flex items-center gap-2 mb-3">
-                  <Sparkles className="w-5 h-5 text-blue-600" />
-                  <h3 className="text-lg font-semibold text-blue-900">AI Summary</h3>
+                <div className="flex items-center justify-between mb-3">
+                  <div className="flex items-center gap-2">
+                    <Sparkles className="w-5 h-5 text-blue-600" />
+                    <h3 className="text-lg font-semibold text-blue-900">AI Summary</h3>
+                  </div>
+                  <Button
+                    onClick={toggleAudio}
+                    disabled={isGeneratingAudio}
+                    variant="outline"
+                    size="sm"
+                    className="bg-white hover:bg-blue-100"
+                  >
+                    {isGeneratingAudio ? (
+                      <>
+                        <Sparkles className="w-4 h-4 mr-2 animate-spin" />
+                        Generating...
+                      </>
+                    ) : isPlaying ? (
+                      <>
+                        <VolumeX className="w-4 h-4 mr-2" />
+                        Stop Audio
+                      </>
+                    ) : (
+                      <>
+                        <Volume2 className="w-4 h-4 mr-2" />
+                        Listen
+                      </>
+                    )}
+                  </Button>
                 </div>
                 <p className="text-blue-800 leading-relaxed">{aiSummary}</p>
               </div>
