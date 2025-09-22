@@ -7,15 +7,23 @@ import logging
 import sys
 from datetime import datetime
 
-# Add parent directory to path for absolute imports when running directly
-if __name__ == "__main__":
-    sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+# Add current directory to path for imports
+current_dir = os.path.dirname(os.path.abspath(__file__))
+if current_dir not in sys.path:
+    sys.path.insert(0, current_dir)
 
 # Load environment variables
 load_dotenv()
 
 # Import routers
-from routers import quiz, upload
+try:
+    from routers import quiz, upload
+except ImportError as e:
+    print(f"Import error: {e}")
+    print(f"Current working directory: {os.getcwd()}")
+    print(f"Python path: {sys.path}")
+    print(f"Files in current directory: {os.listdir('.')}")
+    raise
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)

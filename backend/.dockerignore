@@ -30,34 +30,28 @@ ENV/
 .idea/
 *.swp
 *.swo
-*~
 
 # OS
 .DS_Store
 Thumbs.db
 
-# Git
-.git/
-.gitignore
+# Logs
+*.log
 
-# Documentation
-README.md
-*.md
+# Environment files
+.env
+.env.local
+.env.production
 
 # Test files
 test_*.py
 *_test.py
 tests/
 
-# Environment files
-.env
-.env.local
-.env.*.local
+# Documentation
+README.md
+*.md
 
-# Logs
-*.log
-logs/
-
-# Temporary files
-tmp/
-temp/
+# Git
+.git/
+.gitignore
