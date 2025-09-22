@@ -25,7 +25,6 @@ export default function DashboardPage() {
   return (
     <div className="max-w-4xl mx-auto px-4 py-8">
       <Authenticated>
-        <UserButton />
         <DashboardScreen onTakeQuiz={handleTakeQuiz} onCreateNewQuiz={handleCreateNewQuiz} />
       </Authenticated>
       <Unauthenticated>
