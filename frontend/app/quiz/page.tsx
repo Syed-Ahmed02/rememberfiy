@@ -8,8 +8,11 @@ import { apiClient } from "@/lib/api-client"
 import { useCreateQuiz, useRecordQuizAttempt, useUpdateQuizReview, useGetQuizWithQuestions } from "@/lib/convex-client"
 import { Id } from "@/convex/_generated/dataModel"
 import { generateQuizData } from "@/lib/convex-client"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Sparkles } from "lucide-react"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { Sparkles, BookOpen } from "lucide-react"
+import { Authenticated, Unauthenticated } from "convex/react"
+import { SignInButton } from "@clerk/nextjs"
+import { Button } from "@/components/ui/button"
 
 // Local interface for quiz screen compatibility
 interface Question {
@@ -329,13 +332,37 @@ export default function QuizPage() {
 
   return (
     <div className="max-w-4xl mx-auto px-4 py-8">
-      <QuizScreen
-        content={uploadState.content}
-        quizState={localQuizState}
-        onQuizStateChange={setLocalQuizState}
-        onGoToTutor={handleGoToTutor}
-        onQuizComplete={handleQuizComplete}
-      />
+      <Authenticated>
+        <QuizScreen
+          content={uploadState.content}
+          quizState={localQuizState}
+          onQuizStateChange={setLocalQuizState}
+          onGoToTutor={handleGoToTutor}
+          onQuizComplete={handleQuizComplete}
+        />
+      </Authenticated>
+      <Unauthenticated>
+        <div className="flex justify-center">
+          <Card className="w-full max-w-2xl">
+            <CardHeader className="text-center">
+              <div className="mx-auto w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center mb-4">
+                <BookOpen className="w-6 h-6 text-blue-600" />
+              </div>
+              <CardTitle>Sign in to take quizzes</CardTitle>
+              <CardDescription>
+                Create an account or sign in to access your personalized quizzes and track your progress.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="text-center">
+              <SignInButton mode="modal">
+                <Button size="lg" className="w-full">
+                  Sign In to Continue
+                </Button>
+              </SignInButton>
+            </CardContent>
+          </Card>
+        </div>
+      </Unauthenticated>
     </div>
   )
 }

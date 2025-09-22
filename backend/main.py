@@ -35,11 +35,20 @@ app = FastAPI(
     description="AI-powered learning platform with quiz generation and Socratic tutoring",
     version="1.0.0"
 )
+# Configure CORS - Allow frontend origins
+cors_origins = []
+
+# Add custom frontend URL from environment if provided
+if os.getenv("FRONTEND_URL"):
+    cors_origins.append(os.getenv("FRONTEND_URL"))
+
+# Log CORS configuration for debugging
+logger.info(f"CORS origins configured: {cors_origins}")
 
 # Configure CORS
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000", "http://localhost:3001"],  # Frontend URLs
+    allow_origins=cors_origins,  # Frontend URLs
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

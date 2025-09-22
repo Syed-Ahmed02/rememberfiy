@@ -31,16 +31,21 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body className={`${geistSans.variable} ${geistMono.variable} antialiased min-h-screen bg-gray-50`}>
-        <Navigation />
-        <main>
-          <ClerkProvider>
-            <ConvexClientProvider>
-              <AppProvider>
+        <ClerkProvider
+          publishableKey={process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY}
+          signInUrl="/sign-in"
+          signUpUrl="/sign-up"
+        
+        >
+          <ConvexClientProvider>
+            <AppProvider>
+              <Navigation />
+              <main>
                 {children}
-              </AppProvider>
-            </ConvexClientProvider>
-          </ClerkProvider>
-        </main>
+              </main>
+            </AppProvider>
+          </ConvexClientProvider>
+        </ClerkProvider>
       </body>
     </html>
   )

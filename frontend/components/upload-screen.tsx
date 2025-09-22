@@ -280,18 +280,7 @@ export function UploadScreen() {
               </div>
 
               {/* Text Input Section */}
-              <div className="space-y-4">
-                <h3 className="text-lg font-semibold text-gray-800">Or Paste Text Directly</h3>
-                <Textarea
-                  placeholder="Paste your notes or content here..."
-                  value={textContent}
-                  onChange={(e) => setTextContent(e.target.value)}
-                  className="min-h-[200px] resize-none"
-                />
-                <Button onClick={handleTextSubmit} disabled={!textContent.trim()} className="w-full">
-                  Add Text Content
-                </Button>
-              </div>
+              
             </>
           )}
 
