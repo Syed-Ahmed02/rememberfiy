@@ -48,17 +48,17 @@ export function Navigation() {
         <div className="flex items-center justify-between">
           <Authenticated>
             <Link href="/dashboard">
-              <h1 className="text-2xl font-bold text-gray-900">Remberify</h1>
+              <h1 className="text-2xl font-bold text-gray-900">Rememberify</h1>
             </Link>
           </Authenticated>
           <Unauthenticated>
             <Link href="/">
-              <h1 className="text-2xl font-bold text-gray-900">Remberify</h1>
+              <h1 className="text-2xl font-bold text-gray-900">Rememberify</h1>
             </Link>
           </Unauthenticated>
           <AuthLoading>
             <Link href="/">
-              <h1 className="text-2xl font-bold text-gray-900">Remberify</h1>
+              <h1 className="text-2xl font-bold text-gray-900">Rememberify</h1>
             </Link>
           </AuthLoading>
 
